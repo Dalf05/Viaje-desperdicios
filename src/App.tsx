@@ -78,6 +78,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState('');
   const [isSettingUp, setIsSettingUp] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   // Auth Listener
   useEffect(() => {
@@ -290,29 +291,98 @@ export default function App() {
               allAvailability={allAvailability}
               allProfiles={allProfiles}
               onToggleDate={toggleDate}
+              selectedDate={selectedDate}
+              onSelectDate={setSelectedDate}
             />
           ))}
         </div>
 
         {/* Sidebar / Info */}
         <div className="space-y-8">
-          <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#5A5A40]/5">
-            <h3 className="serif text-2xl font-bold mb-6">Instrucciones</h3>
-            <ul className="space-y-4 text-sm text-[#5A5A40]/70">
-              <li className="flex gap-3">
-                <div className="w-5 h-5 rounded-full bg-red-100 flex-shrink-0" />
-                <span>Haz clic en un día para marcarlo como <b>no disponible</b> para ti.</span>
-              </li>
-              <li className="flex gap-3">
-                <div className="w-5 h-5 rounded-full bg-green-100 flex-shrink-0" />
-                <span>Los días en verde son los que <b>todos</b> estáis libres.</span>
-              </li>
-              <li className="flex gap-3">
-                <div className="w-5 h-5 rounded-full bg-yellow-100 flex-shrink-0" />
-                <span>Los días en amarillo tienen a alguien ocupado.</span>
-              </li>
-            </ul>
-          </div>
+          {selectedDate ? (
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              className="bg-white rounded-[32px] p-8 shadow-sm border border-[#5A5A40]/10 ring-2 ring-[#5A5A40]/20"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="serif text-2xl font-bold">
+                  {format(new Date(selectedDate + 'T12:00:00'), "d 'de' MMMM", { locale: es })}
+                </h3>
+                <button 
+                  onClick={() => setSelectedDate(null)}
+                  className="text-xs text-[#5A5A40]/40 hover:text-[#5A5A40]"
+                >
+                  Cerrar
+                </button>
+              </div>
+              
+              <div className="space-y-4 mb-8">
+                {Object.values(allProfiles as any).map((p: any) => {
+                  const isUnavailable = (allAvailability[p.uid] || []).includes(selectedDate);
+                  return (
+                    <div key={p.uid} className="flex items-center justify-between p-3 rounded-2xl bg-[#f5f5f0]/50">
+                      <div className="flex items-center gap-3">
+                        <div className={cn(
+                          "w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-xs",
+                          isUnavailable ? "bg-red-400" : "bg-green-400"
+                        )}>
+                          {p.displayName[0].toUpperCase()}
+                        </div>
+                        <span className="text-sm font-medium">{p.displayName}</span>
+                      </div>
+                      <span className={cn(
+                        "text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-full",
+                        isUnavailable ? "bg-red-100 text-red-600" : "bg-green-100 text-green-600"
+                      )}>
+                        {isUnavailable ? "Ocupado" : "Libre"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={() => toggleDate(selectedDate)}
+                className={cn(
+                  "w-full py-4 rounded-full font-medium transition-all",
+                  (allAvailability[user.uid] || []).includes(selectedDate)
+                    ? "bg-green-100 text-green-700 hover:bg-green-200"
+                    : "bg-red-100 text-red-700 hover:bg-red-200"
+                )}
+              >
+                {(allAvailability[user.uid] || []).includes(selectedDate)
+                  ? "Marcar como LIBRE para mí"
+                  : "Marcar como OCUPADO para mí"}
+              </button>
+            </motion.div>
+          ) : (
+            <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#5A5A40]/5">
+              <h3 className="serif text-2xl font-bold mb-6">Instrucciones</h3>
+              <ul className="space-y-4 text-sm text-[#5A5A40]/70">
+                <li className="flex gap-3">
+                  <div className="w-5 h-5 rounded-full bg-[#5A5A40]/20 flex-shrink-0 flex items-center justify-center text-[10px] font-bold">1</div>
+                  <span>Haz clic en un día para ver <b>quién puede ir</b> y quién no.</span>
+                </li>
+                <li className="flex gap-3">
+                  <div className="w-5 h-5 rounded-full bg-[#5A5A40]/20 flex-shrink-0 flex items-center justify-center text-[10px] font-bold">2</div>
+                  <span>Haz <b>doble clic</b> en un día para marcarlo como ocupado para ti.</span>
+                </li>
+                <li className="flex gap-3">
+                  <div className="w-5 h-5 rounded-full bg-red-100 flex-shrink-0" />
+                  <span>Los días en rojo son los que <b>tú</b> o <b>todos</b> estáis ocupados.</span>
+                </li>
+                <li className="flex gap-3">
+                  <div className="w-5 h-5 rounded-full bg-green-100 flex-shrink-0" />
+                  <span>Los días en verde son los que <b>todos</b> estáis libres.</span>
+                </li>
+                <li className="flex gap-3">
+                  <div className="w-5 h-5 rounded-full bg-yellow-100 flex-shrink-0" />
+                  <span>Los días en amarillo tienen a alguien ocupado.</span>
+                </li>
+              </ul>
+            </div>
+          )}
 
           <div className="bg-white rounded-[32px] p-8 shadow-sm border border-[#5A5A40]/5">
             <h3 className="serif text-2xl font-bold mb-6">Amigos</h3>
@@ -345,6 +415,8 @@ interface MonthCalendarProps {
   allAvailability: any;
   allProfiles: any;
   onToggleDate: (dateStr: string) => void;
+  selectedDate: string | null;
+  onSelectDate: (dateStr: string) => void;
 }
 
 function MonthCalendar({ 
@@ -352,7 +424,9 @@ function MonthCalendar({
   myAvailability, 
   allAvailability, 
   allProfiles, 
-  onToggleDate 
+  onToggleDate,
+  selectedDate,
+  onSelectDate
 }: MonthCalendarProps) {
   const monthStart = startOfMonth(monthDate);
   const monthEnd = endOfMonth(monthDate);
@@ -394,14 +468,16 @@ function MonthCalendar({
           return (
             <div
               key={dateStr}
-              onClick={() => isCurrentMonth && onToggleDate(dateStr)}
+              onClick={() => isCurrentMonth && onSelectDate(dateStr)}
+              onDoubleClick={() => isCurrentMonth && onToggleDate(dateStr)}
               className={cn(
                 "day-cell",
                 !isCurrentMonth && "other-month",
                 isCurrentMonth && status === 'available' && "available",
                 isCurrentMonth && status === 'unavailable' && "unavailable",
                 isCurrentMonth && status === 'mixed' && "mixed",
-                isUnavailableForMe && "ring-2 ring-inset ring-[#5A5A40]"
+                isUnavailableForMe && "me-unavailable",
+                selectedDate === dateStr && "selected ring-4 ring-[#5A5A40] z-20"
               )}
             >
               <span className="text-lg font-medium">{format(day, 'd')}</span>
@@ -414,15 +490,6 @@ function MonthCalendar({
                   {unavailableFriends.length > 3 && <span className="text-[8px] opacity-40">+</span>}
                 </div>
               )}
-
-              {/* Tooltip-like hover info */}
-              <div className="absolute inset-0 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center bg-white/90 rounded-lg z-10 pointer-events-none">
-                <div className="text-[10px] text-center px-1">
-                  {unavailableFriends.length === 0 
-                    ? "¡Todos libres!" 
-                    : `${unavailableFriends.length} ocupados: ${unavailableFriends.join(', ')}`}
-                </div>
-              </div>
             </div>
           );
         })}
