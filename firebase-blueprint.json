@@ -1,0 +1,37 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" }
+      },
+      "required": ["uid", "displayName"]
+    },
+    "UserAvailability": {
+      "title": "User Availability",
+      "description": "Dates when a user is NOT available",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "unavailableDates": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "required": ["userId", "unavailableDates"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile"
+    },
+    "/availability/{userId}": {
+      "schema": "UserAvailability",
+      "description": "User's unavailable dates"
+    }
+  }
+}
