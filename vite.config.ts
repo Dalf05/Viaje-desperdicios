@@ -7,6 +7,9 @@ export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
   return {
     plugins: [react(), tailwindcss()],
+    // Si vas a publicar en https://tu-usuario.github.io/nombre-del-repo/
+    // descomenta la siguiente linea y cambia 'nombre-del-repo' por el tuyo:
+    // base: '/nombre-del-repo/',
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
     },
