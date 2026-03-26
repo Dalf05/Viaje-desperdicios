@@ -190,6 +190,7 @@ export default function App() {
     new Date(2026, 5, 1), // June
     new Date(2026, 6, 1), // July
     new Date(2026, 7, 1), // August
+    new Date(2026, 8, 1), // September
   ];
 
   if (loading) return <LoadingScreen />;
