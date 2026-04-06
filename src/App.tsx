@@ -10,7 +10,9 @@ import {
   getDoc, 
   collection, 
   onSnapshot, 
-  query 
+  query,
+  deleteDoc,
+  updateDoc
 } from 'firebase/firestore';
 import { 
   format, 
@@ -33,11 +35,13 @@ import {
 } from './firebase';
 import { 
   Users, 
-  Plane
+  Plane,
+  Map as MapIcon
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { SpainMap } from './components/SpainMap';
 
 // Utility for tailwind classes
 function cn(...inputs: ClassValue[]) {
@@ -48,6 +52,8 @@ function cn(...inputs: ClassValue[]) {
 interface UserProfile {
   uid: string;
   displayName: string;
+  email: string;
+  canVote?: boolean;
 }
 
 interface AvailabilityData {
@@ -75,10 +81,12 @@ export default function App() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [allProfiles, setAllProfiles] = useState<any>({});
   const [allAvailability, setAllAvailability] = useState<any>({});
+  const [allDestinations, setAllDestinations] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [displayName, setDisplayName] = useState('');
   const [isSettingUp, setIsSettingUp] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const isAdmin = user?.email === 'danielmolinoferron@gmail.com';
 
   // Auth Listener
   useEffect(() => {
@@ -136,6 +144,22 @@ export default function App() {
     return () => unsubscribe();
   }, [user]);
 
+  // Real-time Sync: All Destinations
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, 'destinations'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const destinations: Record<string, string> = {};
+      snapshot.forEach((doc) => {
+        destinations[doc.id] = (doc.data() as any).provinceId;
+      });
+      setAllDestinations(destinations);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'destinations');
+    });
+    return () => unsubscribe();
+  }, [user]);
+
   const handleLogin = async () => {
     try {
       await signInWithPopup(auth, googleProvider);
@@ -153,6 +177,8 @@ export default function App() {
     const newProfile: UserProfile = {
       uid: user.uid,
       displayName: displayName.trim(),
+      email: user.email || '',
+      canVote: true
     };
 
     try {
@@ -183,6 +209,53 @@ export default function App() {
       }, { merge: true });
     } catch (error) {
       handleFirestoreError(error, OperationType.WRITE, `availability/${user.uid}`);
+    }
+  };
+
+  const handleSelectDestination = async (provinceId: string) => {
+    if (!user || !profile) return;
+    if (profile.canVote === false) {
+      alert("No tienes permiso para votar.");
+      return;
+    }
+    try {
+      await setDoc(doc(db, 'destinations', user.uid), {
+        userId: user.uid,
+        provinceId
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `destinations/${user.uid}`);
+    }
+  };
+
+  const handleDeleteVote = async (userId: string) => {
+    if (!isAdmin) return;
+    try {
+      await deleteDoc(doc(db, 'destinations', userId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `destinations/${userId}`);
+    }
+  };
+
+  const handleToggleCanVote = async (userId: string, currentCanVote: boolean) => {
+    if (!isAdmin) return;
+    try {
+      await updateDoc(doc(db, 'users', userId), {
+        canVote: !currentCanVote
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.WRITE, `users/${userId}`);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    if (!isAdmin || !window.confirm("¿Estás seguro de que quieres eliminar a este usuario y todos sus datos?")) return;
+    try {
+      await deleteDoc(doc(db, 'users', userId));
+      await deleteDoc(doc(db, 'availability', userId));
+      await deleteDoc(doc(db, 'destinations', userId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `users/${userId}`);
     }
   };
 
@@ -296,6 +369,29 @@ export default function App() {
               onSelectDate={setSelectedDate}
             />
           ))}
+
+          {/* Map Section */}
+          <div className="pt-12 border-t border-[#5A5A40]/10">
+            <div className="flex items-center gap-4 mb-8">
+              <div className="w-12 h-12 bg-[#5A5A40]/10 rounded-full flex items-center justify-center text-[#5A5A40]">
+                <MapIcon className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="serif text-4xl font-bold">Destino</h2>
+                <p className="text-[#5A5A40]/60">Vota por la provincia que prefieras</p>
+              </div>
+            </div>
+            
+            <SpainMap 
+              selectedProvince={allDestinations[user.uid] || null}
+              onSelect={handleSelectDestination}
+              canVote={profile?.canVote !== false}
+              votes={Object.values(allDestinations).reduce((acc: Record<string, number>, curr: string) => {
+                acc[curr] = (acc[curr] || 0) + 1;
+                return acc;
+              }, {})}
+            />
+          </div>
         </div>
 
         {/* Sidebar / Info */}
@@ -389,16 +485,48 @@ export default function App() {
             <h3 className="serif text-2xl font-bold mb-6">Amigos</h3>
             <div className="space-y-4">
               {Object.values(allProfiles as any).map((p: any) => (
-                <div key={p.uid} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-[#5A5A40]/10 rounded-full flex items-center justify-center text-[#5A5A40] font-bold text-xs">
-                      {p.displayName[0].toUpperCase()}
+                <div key={p.uid} className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-[#5A5A40]/10 rounded-full flex items-center justify-center text-[#5A5A40] font-bold text-xs">
+                        {p.displayName[0].toUpperCase()}
+                      </div>
+                      <span className="text-sm font-medium">{p.displayName} {p.uid === user.uid && "(Tú)"}</span>
                     </div>
-                    <span className="text-sm font-medium">{p.displayName} {p.uid === user.uid && "(Tú)"}</span>
+                    <span className="text-xs text-[#5A5A40]/40">
+                      {allAvailability[p.uid]?.length || 0} ocupados
+                    </span>
                   </div>
-                  <span className="text-xs text-[#5A5A40]/40">
-                    {allAvailability[p.uid]?.length || 0} ocupados
-                  </span>
+                  
+                  {isAdmin && (
+                    <div className="flex items-center gap-2 mt-1 ml-11">
+                      <button 
+                        onClick={() => handleToggleCanVote(p.uid, p.canVote !== false)}
+                        className={cn(
+                          "text-[10px] px-2 py-1 rounded-md font-bold uppercase tracking-wider transition-colors",
+                          p.canVote !== false ? "bg-green-100 text-green-600 hover:bg-green-200" : "bg-red-100 text-red-600 hover:bg-red-200"
+                        )}
+                      >
+                        {p.canVote !== false ? "Puede Votar" : "No Puede Votar"}
+                      </button>
+                      
+                      {allDestinations[p.uid] && (
+                        <button 
+                          onClick={() => handleDeleteVote(p.uid)}
+                          className="text-[10px] px-2 py-1 bg-orange-100 text-orange-600 rounded-md font-bold uppercase tracking-wider hover:bg-orange-200"
+                        >
+                          Quitar Voto
+                        </button>
+                      )}
+
+                      <button 
+                        onClick={() => handleDeleteUser(p.uid)}
+                        className="text-[10px] px-2 py-1 bg-gray-100 text-gray-600 rounded-md font-bold uppercase tracking-wider hover:bg-gray-200"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

@@ -6,9 +6,11 @@
       "type": "object",
       "properties": {
         "uid": { "type": "string" },
-        "displayName": { "type": "string" }
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "canVote": { "type": "boolean" }
       },
-      "required": ["uid", "displayName"]
+      "required": ["uid", "displayName", "email"]
     },
     "UserAvailability": {
       "title": "User Availability",
@@ -22,6 +24,16 @@
         }
       },
       "required": ["userId", "unavailableDates"]
+    },
+    "DestinationVote": {
+      "title": "Destination Vote",
+      "description": "User's preferred destination",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "provinceId": { "type": "string" }
+      },
+      "required": ["userId", "provinceId"]
     }
   },
   "firestore": {
@@ -32,6 +44,10 @@
     "/availability/{userId}": {
       "schema": "UserAvailability",
       "description": "User's unavailable dates"
+    },
+    "/destinations/{userId}": {
+      "schema": "DestinationVote",
+      "description": "User's preferred destination"
     }
   }
 }
